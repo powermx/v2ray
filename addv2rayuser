@@ -28,7 +28,6 @@ while true; do
   fi
 done
 newId=$(uuidgen)
-expiration_date=$(date -d "+2 days" "+%Y-%m-%d %H:%M:%S")
 newClient=$(cat <<-END
 {
   "id": "${newId}",
@@ -46,6 +45,5 @@ echo "Nuevo usuario agregado:"
 echo "  id: ${newId}"
 echo "  alterId: ${newAlterId}"
 echo "  email: ${newEmail}"
-echo "  Fecha de expiraciÃ³n: ${expiration_date}"
 echo "Enlace vless generado:"
 echo "  ${vlessLink}"
