@@ -1,0 +1,51 @@
+#!/bin/bash
+
+config_file="/etc/v2ray/config.json"
+
+expired_users_log="/var/log/v2ray/expired_users.log"
+
+delete_expired_users() {
+  current_time=$(date +%s)
+  while IFS= read -r line; do
+    user_time=$(echo "$line" | cut -d' ' -f1)
+    user_id=$(echo "$line" | cut -d' ' -f2)
+    if ((current_time - user_time > 172800)); then  # 2 dÃ­as en segundos
+      echo "Eliminando usuario expirado: $user_id"
+      jq "del(.inbounds[0].settings.clients[] | select(.id == \"$user_id\"))" "$config_file" > temp.json && mv temp.json "$config_file"
+      echo "$(date +%s) $user_id" >> "$expired_users_log"
+    fi
+  done <"$expired_users_log"
+}
+delete_expired_script="/usr/local/bin/deluserv2ray"
+delete_expired_users
+lastAlterId=$(jq '.inbounds[0].settings.clients[-1].alterId' "$config_file")
+lastEmail=$(jq -r '.inbounds[0].settings.clients[-1].email' "$config_file")
+while true; do
+  newAlterId=$((1 + RANDOM % 1000))
+  newEmail="${newAlterId}@powermx.org"
+  if [[ "$newAlterId" -ne "$lastAlterId" && "$newEmail" != "$lastEmail" ]]; then
+    break
+  fi
+done
+newId=$(uuidgen)
+expiration_date=$(date -d "+2 days" "+%Y-%m-%d %H:%M:%S")
+newClient=$(cat <<-END
+{
+  "id": "${newId}",
+  "alterId": ${newAlterId},
+  "email": "${newEmail}"
+}
+END
+)
+
+jq ".inbounds[0].settings.clients += [$newClient]" "$config_file" > temp.json && mv temp.json "$config_file"
+
+vlessLink="vless://${newId}@server.vpspack.icu:443?encryption=none&security=tls&type=ws&host=server.vpspack.icu&path=/service/#server.vpspack.icu%3A443"
+v2ray restart 1>/dev/null 2>/dev/null
+echo "Nuevo usuario agregado:"
+echo "  id: ${newId}"
+echo "  alterId: ${newAlterId}"
+echo "  email: ${newEmail}"
+echo "  Fecha de expiraciÃ³n: ${expiration_date}"
+echo "Enlace vless generado:"
+echo "  ${vlessLink}"
